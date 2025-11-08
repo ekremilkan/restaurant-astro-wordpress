@@ -1,0 +1,918 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import type { WooProduct } from "../lib/woocommerce";
+import {
+  listCategories,
+  listFeaturedProducts,
+  listProducts,
+} from "../lib/woocommerce";
+
+const [
+  { items: featuredProducts },
+  { items: categories },
+  { items: products },
+] = await Promise.all([
+  listFeaturedProducts(6),
+  listCategories({ per_page: 20 }),
+  listProducts({ per_page: 24 }),
+]);
+
+const displayCategories = categories.filter((cat) => (cat.count ?? 0) > 0);
+
+const heroVideo = {
+  src: "/hero-video.mp4",
+};
+
+type CategoryGroup = {
+  key: string;
+  label: string;
+  items: WooProduct[];
+};
+
+const stripHtml = (value: string) =>
+  value
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const encodeAttr = (value: string | undefined | null) => encodeURIComponent(value ?? "");
+
+const getProductSnippet = (product: WooProduct) => {
+  const short = stripHtml(product.short_description ?? "");
+  return short || "Description coming soon.";
+};
+
+const categoryGroups: CategoryGroup[] = displayCategories
+  .map((category) => {
+    const items = products.filter((product) =>
+      product.categories.some(({ id }) => id === category.id)
+    );
+    return {
+      key: `cat-${category.id}`,
+      label: category.name,
+      items,
+    };
+  })
+  .filter((group) => group.items.length > 0);
+
+const uncategorizedProducts = products.filter(
+  (product) =>
+    !displayCategories.some((category) =>
+      product.categories.some(({ id }) => id === category.id)
+    )
+);
+
+if (uncategorizedProducts.length) {
+  categoryGroups.push({
+    key: "cat-chef",
+    label: "Chef Specials",
+    items: uncategorizedProducts,
+  });
+}
+---
+
+<BaseLayout
+  title="Mesa Nova | Seasonal Kitchen & Bar"
+  description="A modern restaurant serving fire-kissed plates and botanical cocktails."
+>
+  <section class="hero hero--immersive">
+    <video
+      class="hero__video"
+      autoplay
+      muted
+      loop
+      playsinline
+      poster={heroVideo.poster}
+    >
+      <source src={heroVideo.src} type="video/mp4" />
+    </video>
+    <div class="hero__overlay"></div>
+    <div class="hero__content">
+      <div class="hero__inner">
+        <p class="eyebrow">Modern Coastal Cuisine</p>
+        <h1>Taste the sunset with every plate & pour.</h1>
+        <p>
+          Our chef-driven kitchen pairs seasonal ingredients with wood-fired
+          technique while the bar crafts botanical cocktails inspired by the
+          desert bloom. Dinner, late-night bites, and weekend brunch await.
+        </p>
+        <div class="hero__cta">
+          <button
+            class="ghost-btn ghost-btn--light"
+            type="button"
+            data-scroll="#menu">Browse Menu</button
+          >
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section popular" id="popular">
+    <div class="section__header">
+      <p class="eyebrow">Popular Now</p>
+      <h2>Guest-favorite plates</h2>
+    </div>
+    <div class="popular__grid">
+      {
+        featuredProducts.length ? (
+          featuredProducts.map((product) => (
+            <article class="popular-card">
+              {product.images[0] && (
+                <img
+                  src={product.images[0].src}
+                  alt={product.images[0].alt ?? product.name}
+                  loading="lazy"
+                />
+              )}
+              <div>
+                <div class="popular-card__title">
+                  <h3>{product.name}</h3>
+                  <span>${product.price}</span>
+                </div>
+                <p
+                  innerHTML={product.short_description || product.description}
+                />
+              </div>
+            </article>
+          ))
+        ) : (
+          <p>No featured dishes yet—check back shortly.</p>
+        )
+      }
+    </div>
+  </section>
+
+  <section class="section menu" id="menu">
+    <div class="section__header">
+      <p class="eyebrow">Menu</p>
+      <h2>Filter by craving</h2>
+    </div>
+    <div class="filters" aria-label="Filter menu by category" role="tablist" data-filters>
+      <button class="filter-button is-active" type="button" data-filter="all" role="tab">All</button>
+      {
+        categoryGroups.map((group) => (
+          <button class="filter-button" type="button" data-filter={group.key} role="tab">
+            {group.label}
+          </button>
+        ))
+      }
+    </div>
+    <div class="menu-groups">
+      {
+        categoryGroups.length ? (
+          categoryGroups.map((group) => (
+            <div
+              class="menu-group"
+              data-category-section
+              data-category-key={group.key}
+              id={group.key}
+            >
+              <div class="menu-group__header">
+                <div>
+                  <h3>{group.label}</h3>
+                  <p>{group.items.length} selections</p>
+                </div>
+                <div class="separator" aria-hidden="true">
+                  <span />
+                  <p>Chef pairing</p>
+                  <span />
+                </div>
+              </div>
+              <div class="menu-grid">
+                {group.items.map((product) => {
+                  const primaryImage = product.images[0];
+                  const description = stripHtml(product.description ?? "");
+                  const attributesPayload = JSON.stringify(product.attributes ?? []);
+                  return (
+                    <article
+                      class="menu-card"
+                      role="button"
+                      tabindex="0"
+                      aria-label={`View details of ${product.name}`}
+                      data-product-name={product.name}
+                      data-price={product.price}
+                      data-image={primaryImage?.src ?? ""}
+                      data-description={encodeAttr(description)}
+                      data-ingredients={encodeAttr(attributesPayload)}
+                    >
+                      {primaryImage && (
+                        <div class="menu-card__image">
+                          <img
+                            src={primaryImage.src}
+                            alt={primaryImage.alt ?? product.name}
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                      <div class="menu-card__body">
+                        <h3>{product.name}</h3>
+                        <p>{getProductSnippet(product)}</p>
+                      </div>
+                      <div class="menu-card__meta">
+                        <span>${product.price}</span>
+                        {product.stock_status !== "instock" && (
+                          <small class="badge">Limited</small>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p>Menu is getting curated—check back soon for fresh plates.</p>
+        )
+      }
+    </div>
+  </section>
+
+  <div class="modal" data-modal hidden aria-hidden="true">
+    <div class="modal__backdrop" data-modal-close></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal__close" type="button" aria-label="Close" data-modal-close>&times;</button>
+      <div class="modal__content">
+        <div class="modal__image is-hidden" data-modal-image-wrapper>
+          <img data-modal-image alt="" loading="lazy" />
+        </div>
+        <div class="modal__info">
+          <p class="eyebrow">Chef Selection</p>
+          <h3 id="modal-title" data-modal-title></h3>
+          <p class="modal__price" data-modal-price></p>
+          <p class="modal__description" data-modal-description></p>
+          <div class="modal__ingredients" data-modal-ingredients></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const filterContainer = document.querySelector("[data-filters]");
+  const filterButtons = Array.from(document.querySelectorAll(".filter-button"));
+  const categorySections = Array.from(
+    document.querySelectorAll("[data-category-section]")
+  );
+  const menuSection = document.querySelector("#menu");
+  const modal = document.querySelector("[data-modal]");
+  const body = document.body;
+
+  const buttonMap = new Map(
+    filterButtons.map((button) => [button.dataset.filter ?? "all", button])
+  );
+  const defaultFilterKey = buttonMap.has("all")
+    ? "all"
+    : filterButtons[0]?.dataset.filter ?? "all";
+  let currentActiveKey = defaultFilterKey;
+
+  const centerFilterButton = (button, smooth = true) => {
+    if (!filterContainer || !button) return;
+    const containerWidth = filterContainer.clientWidth;
+    const target =
+      button.offsetLeft - containerWidth / 2 + button.offsetWidth / 2;
+    const maxScroll = Math.max(0, filterContainer.scrollWidth - containerWidth);
+    const clamped = Math.max(0, Math.min(target, maxScroll));
+    filterContainer.scrollTo({
+      left: clamped,
+      behavior: smooth ? "smooth" : "auto",
+    });
+  };
+
+  const setActiveButton = (key, { smooth = true, force = false } = {}) => {
+    if (!buttonMap.size) return;
+    const normalizedKey = buttonMap.has(key) ? key : defaultFilterKey;
+    if (!force && currentActiveKey === normalizedKey) return;
+    currentActiveKey = normalizedKey;
+
+    filterButtons.forEach((btn) => {
+      const btnKey = btn.dataset.filter ?? "all";
+      btn.classList.toggle("is-active", btnKey === normalizedKey);
+    });
+
+    const activeButton = buttonMap.get(normalizedKey);
+    if (activeButton) {
+      centerFilterButton(activeButton, smooth);
+    }
+  };
+
+  let sectionOffsets = [];
+
+  const computeSectionOffsets = () => {
+    sectionOffsets = categorySections
+      .map((section) => ({
+        key: section.dataset.categoryKey ?? "",
+        top: section.getBoundingClientRect().top + window.scrollY - 140,
+      }))
+      .filter((entry) => entry.key)
+      .sort((a, b) => a.top - b.top);
+  };
+
+  const updateActiveFromScroll = () => {
+    if (!sectionOffsets.length) return;
+    const scrollPos = window.scrollY + 200;
+    let key = defaultFilterKey;
+    for (const section of sectionOffsets) {
+      if (scrollPos >= section.top) {
+        key = section.key;
+      } else {
+        break;
+      }
+    }
+    setActiveButton(key, { smooth: true });
+  };
+
+  if (filterButtons.length) {
+    computeSectionOffsets();
+    setActiveButton(defaultFilterKey, { smooth: false, force: true });
+    updateActiveFromScroll();
+
+    window.addEventListener("resize", () => {
+      computeSectionOffsets();
+      updateActiveFromScroll();
+    });
+
+    window.addEventListener("load", () => {
+      computeSectionOffsets();
+      updateActiveFromScroll();
+    });
+
+    let scrollTicking = false;
+    window.addEventListener("scroll", () => {
+      if (!sectionOffsets.length) return;
+      if (!scrollTicking) {
+        scrollTicking = true;
+        window.requestAnimationFrame(() => {
+          updateActiveFromScroll();
+          scrollTicking = false;
+        });
+      }
+    });
+  }
+
+  filterButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const targetId = button.dataset.filter ?? "all";
+      setActiveButton(targetId, { smooth: true, force: true });
+
+      if (targetId === "all" || !targetId) {
+        if (menuSection) {
+          const offset =
+            menuSection.getBoundingClientRect().top + window.scrollY - 60;
+          window.scrollTo({ top: offset, behavior: "smooth" });
+        }
+        return;
+      }
+
+      const targetSection = document.getElementById(targetId);
+      if (targetSection) {
+        const offset =
+          targetSection.getBoundingClientRect().top + window.scrollY - 60;
+        window.scrollTo({ top: offset, behavior: "smooth" });
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-scroll]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = document.querySelector(button.dataset.scroll || "");
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+  });
+
+  const decodeAttr = (value) => {
+    if (!value) return "";
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+
+  const parseIngredients = (value) => {
+    const decoded = decodeAttr(value);
+    if (!decoded) return [];
+    try {
+      return JSON.parse(decoded);
+    } catch {
+      return [];
+    }
+  };
+
+  if (modal) {
+    const modalImage = modal.querySelector("[data-modal-image]");
+    const modalImageWrapper = modal.querySelector("[data-modal-image-wrapper]");
+    const modalTitle = modal.querySelector("[data-modal-title]");
+    const modalPrice = modal.querySelector("[data-modal-price]");
+    const modalDescription = modal.querySelector("[data-modal-description]");
+    const modalIngredients = modal.querySelector("[data-modal-ingredients]");
+    const closeElements = modal.querySelectorAll("[data-modal-close]");
+
+    const renderIngredients = (ingredients) => {
+      if (!modalIngredients) return;
+      modalIngredients.innerHTML = "";
+
+      if (!ingredients.length) {
+        const fallback = document.createElement("p");
+        fallback.className = "modal__muted";
+        fallback.textContent = "Ingredients details coming soon.";
+        modalIngredients.appendChild(fallback);
+        return;
+      }
+
+      const heading = document.createElement("h4");
+      heading.textContent = "Ingredients";
+      modalIngredients.appendChild(heading);
+
+      const list = document.createElement("ul");
+      ingredients.forEach((ingredient) => {
+        if (!ingredient?.options?.length) return;
+        const listItem = document.createElement("li");
+        const label = ingredient.name ? `${ingredient.name}: ` : "";
+        listItem.textContent = `${label}${ingredient.options.join(", ")}`;
+        list.appendChild(listItem);
+      });
+
+      if (!list.childElementCount) {
+        const placeholder = document.createElement("p");
+        placeholder.className = "modal__muted";
+        placeholder.textContent = "Ingredients details coming soon.";
+        modalIngredients.appendChild(placeholder);
+        return;
+      }
+
+      modalIngredients.appendChild(list);
+    };
+
+    const openModal = (card) => {
+      if (!modalTitle || !modalDescription || !modalPrice) return;
+      const name = card.dataset.productName ?? "";
+      const price = card.dataset.price ?? "";
+      const image = card.dataset.image ?? "";
+      const description = decodeAttr(card.dataset.description);
+      const ingredients = parseIngredients(card.dataset.ingredients);
+
+      modal.removeAttribute("hidden");
+      modal.setAttribute("aria-hidden", "false");
+      body.style.overflow = "hidden";
+
+      modalTitle.textContent = name;
+      modalPrice.textContent = price ? `$${price}` : "";
+      modalDescription.textContent = description || "Description coming soon.";
+      renderIngredients(ingredients);
+
+      if (modalImage && modalImageWrapper) {
+        if (image) {
+          modalImage.src = image;
+          modalImageWrapper.classList.remove("is-hidden");
+        } else {
+          modalImage.src = "";
+          modalImageWrapper.classList.add("is-hidden");
+        }
+      }
+    };
+
+    const closeModal = () => {
+      modal.setAttribute("hidden", "true");
+      modal.setAttribute("aria-hidden", "true");
+      body.style.overflow = "";
+    };
+
+    closeElements.forEach((element) => {
+      element.addEventListener("click", () => {
+        closeModal();
+      });
+    });
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        closeModal();
+      }
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.hasAttribute("hidden")) {
+        closeModal();
+      }
+    });
+
+    document.querySelectorAll(".menu-card").forEach((card) => {
+      card.addEventListener("click", () => openModal(card));
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openModal(card);
+        }
+      });
+    });
+  }
+</script>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: min(90vh, 640px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: #fff;
+  }
+
+  .hero__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .hero__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      rgba(9, 7, 5, 0.8),
+      rgba(9, 7, 5, 0.25)
+    );
+    backdrop-filter: blur(2px);
+  }
+
+  .hero__content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+  }
+
+  .hero__inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+
+  .hero__inner h1 {
+    font-size: clamp(2.4rem, 6vw, 3.8rem);
+    line-height: 1.05;
+    margin: 0.5rem 0 1rem;
+  }
+
+  .hero__inner p {
+    max-width: 32rem;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .hero__cta {
+    margin-top: 1.5rem;
+  }
+
+  .ghost-btn {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: transparent;
+    padding: 0.6rem 1.2rem;
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ghost-btn--light {
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #fff;
+  }
+
+  .popular__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .popular-card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+  }
+
+  .popular-card img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 12px;
+  }
+
+  .popular-card__title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .popular-card__title span {
+    font-weight: 600;
+  }
+
+  .filters {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.85rem 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    position: sticky;
+    top: 64px;
+    z-index: 10;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(250, 248, 244, 0.95)
+    );
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    scrollbar-width: none;
+  }
+
+  .filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filter-button {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: #fff;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .filter-button.is-active {
+    background: #1f1b16;
+    color: #fff;
+    border-color: #1f1b16;
+  }
+
+  .menu-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .menu-group__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .menu-group__header p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  @media (min-width: 768px) {
+    .menu-group__header {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  .menu-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: flex-start;
+  }
+
+  .menu-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    min-height: 220px;
+    flex: 0 0 clamp(220px, 45vw, 260px);
+  }
+
+  .menu-card__image {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f5f2ed;
+  }
+
+  .menu-card__image img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .menu-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-height: 80px;
+  }
+
+  .menu-card__meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+  }
+
+  @media (max-width: 640px) {
+    .menu-grid {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .menu-card {
+      flex: 1 1 auto;
+      min-height: auto;
+      flex-direction: row;
+      gap: 0.8rem;
+      align-items: center;
+      width: 100%;
+    }
+
+    .menu-card__image {
+      flex: 0 0 110px;
+      border-radius: 12px;
+      max-width: 110px;
+    }
+
+    .menu-card__image img {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+    }
+
+    .menu-card__body {
+      flex: 1;
+      min-height: auto;
+      overflow: hidden;
+    }
+
+    .menu-card__meta {
+      margin-top: 0.25rem;
+      flex-shrink: 0;
+      padding-left: 0.5rem;
+      align-items: flex-start;
+      gap: 0.2rem;
+    }
+  }
+
+  .badge {
+    background: #f4d06f;
+    color: #4a371f;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .separator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .separator span {
+    flex: 1;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .separator p {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin: 0;
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .section__header {
+    margin-bottom: 1.25rem;
+  }
+
+  .eyebrow {
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .hero--immersive::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 -120px 120px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+  }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 50;
+  }
+
+  .modal[hidden] {
+    display: none;
+  }
+
+  .modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+  }
+
+  .modal__dialog {
+    position: relative;
+    background: #fff;
+    border-radius: 24px;
+    padding: 1.5rem;
+    width: min(520px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+  }
+
+  .modal__close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .modal__content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modal__image {
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .modal__image img {
+    width: 100%;
+    border-radius: 16px;
+    object-fit: cover;
+    max-height: 220px;
+  }
+
+  .modal__image.is-hidden {
+    display: none;
+  }
+
+  .modal__price {
+    font-weight: 600;
+    margin: 0.25rem 0 0.5rem;
+  }
+
+  .modal__description {
+    margin: 0 0 0.75rem;
+    color: rgba(0, 0, 0, 0.75);
+  }
+
+  .modal__ingredients h4 {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+  }
+
+  .modal__ingredients ul {
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+
+  .modal__ingredients li {
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+  }
+
+  .modal__muted {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 0.9rem;
+  }
+</style>

@@ -1,0 +1,246 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	title?: string;
+	description?: string;
+}
+
+const { title = 'Mesa Nova', description = 'Modern dining with seasonal plates & crafted cocktails.' } = Astro.props as Props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="icon" href="/favicon.svg" />
+	</head>
+	<body>
+		<header class="site-header">
+			<div class="container">
+				<a class="brand" href="/">
+					<span class="brand-mark">MN</span>
+					<div>
+						<strong>Mesa Nova</strong>
+						<small>Kitchen & Bar</small>
+					</div>
+				</a>
+				<button
+					class="menu-toggle"
+					type="button"
+					aria-label="Toggle navigation"
+					aria-expanded="false"
+					data-menu-toggle
+				>
+					<span></span>
+					<span></span>
+					<span></span>
+				</button>
+				<nav class="nav" data-nav>
+					<a href="#menu">Menu</a>
+					<a href="#popular">Popular</a>
+					<a href="#visit">Visit</a>
+				</nav>
+			</div>
+		</header>
+
+		<main>
+			<slot />
+		</main>
+
+		<footer class="site-footer" id="visit">
+			<div class="container">
+				<section>
+					<h4>Mesa Nova</h4>
+					<p>123 Artisan Avenue, Palm Springs, CA</p>
+				</section>
+				<section>
+					<h4>Hours</h4>
+					<p>Mon–Thu · 4pm–10pm</p>
+					<p>Fri–Sun · 12pm–11pm</p>
+				</section>
+				<section>
+					<h4>Contact</h4>
+					<p>(760) 555-0145</p>
+					<p>hello@mesanova.com</p>
+				</section>
+			</div>
+		</footer>
+
+		<script>
+			const toggleButton = document?.querySelector?.('[data-menu-toggle]');
+			const navMenu = document?.querySelector?.('[data-nav]');
+
+			const setExpanded = (expanded) => {
+				if (!toggleButton || !navMenu) return;
+				toggleButton.setAttribute('aria-expanded', String(expanded));
+				navMenu.classList.toggle('is-open', expanded);
+				document.body.classList.toggle('menu-open', expanded);
+			};
+
+			if (toggleButton && navMenu) {
+				toggleButton.addEventListener('click', () => {
+					const isOpen = navMenu.classList.contains('is-open');
+					setExpanded(!isOpen);
+				});
+
+				navMenu.querySelectorAll('a').forEach((link) => {
+					link.addEventListener('click', () => setExpanded(false));
+				});
+
+				window.addEventListener('resize', () => {
+					if (window.innerWidth > 640) {
+						setExpanded(false);
+					}
+				});
+			}
+		</script>
+	</body>
+</html>
+
+<style>
+	:global(body) {
+		scroll-behavior: smooth;
+	}
+
+	.site-header {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		backdrop-filter: blur(12px);
+		border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+		background: rgba(250, 248, 244, 0.9);
+	}
+
+	.site-header .container {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.75rem 1rem;
+		max-width: 1100px;
+		margin: 0 auto;
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		font-weight: 600;
+		color: inherit;
+	}
+
+	.brand-mark {
+		width: 2.4rem;
+		height: 2.4rem;
+		border-radius: 50%;
+		background: #1f1b16;
+		color: #fff;
+		display: grid;
+		place-items: center;
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+	}
+
+	.brand small {
+		display: block;
+		font-weight: 400;
+		color: rgba(0, 0, 0, 0.6);
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+	}
+
+	.nav {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.9rem;
+	}
+
+	.nav a {
+		padding: 0.3rem 0.75rem;
+		border-radius: 999px;
+		font-weight: 500;
+		color: rgba(0, 0, 0, 0.75);
+	}
+
+	.nav a:hover:not(.button) {
+		background: rgba(0, 0, 0, 0.06);
+	}
+
+	.site-footer {
+		background: #14110e;
+		color: rgba(255, 255, 255, 0.85);
+		padding: 3rem 1rem;
+		margin-top: 4rem;
+	}
+
+	.site-footer .container {
+		max-width: 1100px;
+		margin: 0 auto;
+		display: grid;
+		gap: 1.5rem;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	}
+
+	.site-footer h4 {
+		margin-bottom: 0.25rem;
+		font-size: 0.95rem;
+	}
+
+	.site-footer p {
+		margin: 0.15rem 0;
+		color: rgba(255, 255, 255, 0.7);
+		font-size: 0.85rem;
+	}
+
+	.menu-toggle {
+		display: none;
+		flex-direction: column;
+		gap: 0.25rem;
+		background: transparent;
+		border: none;
+		padding: 0.25rem;
+		cursor: pointer;
+	}
+
+	.menu-toggle span {
+		width: 24px;
+		height: 2px;
+		background: #1f1b16;
+		display: block;
+		border-radius: 999px;
+	}
+
+	@media (max-width: 640px) {
+		.menu-toggle {
+			display: flex;
+		}
+
+		.nav {
+			position: absolute;
+			top: 100%;
+			right: 1rem;
+			left: 1rem;
+			background: #fff;
+			border-radius: 16px;
+			box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+			padding: 1rem;
+			flex-direction: column;
+			display: none;
+			gap: 0.75rem;
+		}
+
+		.nav.is-open {
+			display: flex;
+		}
+
+		:global(body.menu-open) {
+			overflow: hidden;
+		}
+	}
+</style>
